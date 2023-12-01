@@ -1,0 +1,53 @@
+---
+title: "eds222 final"
+author: "Emily Cobb"
+date: "2023-11-30"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Package loading and data setup
+
+```{r packages}
+# Load all the packages needed here
+library(tidyverse)
+library(readr)
+library(modelsummary) #to make nice tables and dataskim
+library(here) #for file path simplicity
+library(broom)
+library(effectsize)
+library(corrplot) #correlation matrix
+```
+
+Data import and cleaning
+
+```{r}
+hurricane <- read_csv("hurricanedisplacement2005.csv")
+```
+
+```{r}
+#fix data errors
+hurricane<- hurricane %>% 
+mutate(across(where(is.numeric), ~abs(.)))
+
+```
+
+```{r}
+#change to factor variables 
+  hurricane <- hurricane %>% mutate(across(where(is.numeric), as.factor))
+```
+
+```{r}
+#make new outcome variable binary-- did leave state or did not 
+hurricane <- hurricane %>% mutate("didmove"= ifelse(lives.NO.still == c("2","3"), 1, 0 ))
+```
+
+## Plotting
+
+```{r}
+#summary stats and overview
+datasummary_balance(~ 1, data = hurricane, caption = "summary of dataset")
+```
