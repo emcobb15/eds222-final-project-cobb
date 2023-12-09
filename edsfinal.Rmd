@@ -17,9 +17,15 @@ library(tidyverse)
 library(readr)
 library(modelsummary) #to make nice tables and dataskim
 library(here) #for file path simplicity
-library(broom)
+library(broom.mixed)
 library(effectsize)
 library(corrplot) #correlation matrix
+library(leaflet) #map time
+library(geojsonio)
+library(rempsyc)
+library(htmlwidgets)
+library(webshot)
+library(mapview)
 ```
 
 Data import and cleaning
@@ -29,10 +35,19 @@ hurricane <- read_csv("hurricanedisplacement2005.csv")
 ```
 
 ```{r}
-#fix data errors
+#fix data errors and change names to their abv
 hurricane<- hurricane %>% 
-mutate(across(where(is.numeric), ~abs(.)))
-
+mutate(across(where(is.numeric), ~abs(.))) %>%
+  mutate(
+   evac.state  = case_when(
+      str_detect(evac.state, "GEORIGA") ~ "GA",
+       TRUE ~ evac.state  # Keep the original value if none of the conditions are met
+    )) %>%
+  mutate(
+   state.most.time  = case_when(
+      str_detect(state.most.time, "OKLAHOMA") ~ "OK",
+      str_detect(state.most.time, "FLA") ~ "FL",
+       TRUE ~ state.most.time ))
 ```
 
 ```{r}
@@ -43,6 +58,24 @@ mutate(across(where(is.numeric), ~abs(.)))
 ```{r}
 #make new outcome variable binary-- did leave state or did not 
 hurricane <- hurricane %>% mutate("didmove"= ifelse(lives.NO.still == c("2","3"), 1, 0 ))
+# labels for plots  
+hurricane <- hurricane %>% mutate("didmove2"= ifelse(lives.NO.still == c("1"), "Moved Away", "Moved Back" ))
+```
+
+```{r}
+#fix race and work variables 
+hurricane <- hurricane %>% 
+  mutate("white" = ifelse(white == c("1"), "1", "0" )) %>%
+  mutate("black" = ifelse(black == c("2"), "1", "0" )) %>%
+  mutate("hispanic" = ifelse(hispanic == c("3"), "1", "0" )) %>%
+  mutate("partime" = ifelse(partime == c("2"), "1", "0" )) %>%
+  mutate("selfempfull" = ifelse(selfempfull == c("3"), "1", "0" )) %>%
+  mutate("laidoff" = ifelse(laidoff == c("5"), 1, 0 )) %>% 
+  mutate("selfemppart" = ifelse(selfemppart == c("4"), 1, 0 )) %>% 
+  mutate("unemployed" = ifelse(unemployed == c("6"), 1, 0 )) %>% 
+  mutate("disabled" = ifelse(disabled== c("7"), 1, 0 )) %>% 
+  mutate("student" = ifelse(student == c("9"), 1, 0))
+  hurricane <- hurricane %>% mutate(across(where(is.numeric), as.character)) 
 ```
 
 ## Plotting
@@ -50,4 +83,343 @@ hurricane <- hurricane %>% mutate("didmove"= ifelse(lives.NO.still == c("2","3")
 ```{r}
 #summary stats and overview
 datasummary_balance(~ 1, data = hurricane, caption = "summary of dataset")
+```
+
+```{r}
+#summary of did move vs moved groups 
+
+hurricanestats <- hurricane %>% select(
+  didmove2, 
+  `Black` = black,
+  "Hispanic" = hispanic, 
+  "White" = white,
+  "Level of School Completed" = schooling, 
+  "Employed Full-Time" = fulltime, 
+  "Employed Part-Time" = partime, 
+  "Self Employed Full-Time" = selfempfull,
+  "Self Employed Part-Time" = selfemppart,
+  "Laid off from Job" = laidoff, 
+  "Unemployed" = unemployed,
+  "Disabled" = disabled, 
+  "Student" = student, 
+  "Own Home" = own.rent, 
+  "Lived in Apartment" = apartment, 
+  "Lived in Single Family House" = singlefam, 
+  "Lived in a Duplex" = duplex,
+  "Damage to Residence" = res.damage,
+  "Income" = income
+)
+
+caption <- "Compairison of Sociodemogrpahic and Housing/Hurricane Displacement Variables Between Moved and Moved Back Groups"
+
+datasummary_balance(~didmove2,
+                    data = hurricanestats,
+                    title = caption)
+                
+```
+
+```{r}
+#make summary of evacuation states for chloropelth map
+evac.summary <- hurricane %>% 
+  group_by(evac.state) %>%
+  summarise( people = n())
+```
+
+```{r}
+#change names in state variable to merge better
+evac.summary <- evac.summary %>%
+  mutate(
+   evac.state  = case_when(
+      str_detect(evac.state, "GA") ~ "Georgia",
+      str_detect(evac.state, "AL") ~ "Alabama",
+      str_detect(evac.state, "FL") ~ "Florida",
+      str_detect(evac.state, "LA") ~ "Louisiana",
+      str_detect(evac.state, "MA") ~ "Massachusetts",
+      str_detect(evac.state, "MS") ~ "Mississippi",
+      str_detect(evac.state, "NC") ~ "North Carolina",
+      str_detect(evac.state, "TN") ~ "Tennessee",
+      str_detect(evac.state, "TX") ~ "Texas",
+      str_detect(evac.state, "AR") ~ "Arkansas",
+       TRUE ~ evac.state  # Keep the original value if none of the conditions are met
+    ))
+
+```
+
+map making
+
+```{r , eval = FALSE}
+#map
+states <- geojsonio::geojson_read("https://rstudio.github.io/leaflet/json/us-states.geojson", what = "sp")
+
+merged_data <- merge(states, evac.summary, by.x = "name", by.y = "evac.state", x.all = TRUE)
+
+
+# Create a Leaflet map
+map <- leaflet() %>%
+  addProviderTiles("CartoDB.Positron") %>%
+  setView(lng = -96, lat = 37.8, zoom = 4)  # Adjust the view as needed
+
+#map
+map <- map %>%
+  addPolygons(
+    data = merged_data,
+    fillColor = ~colorNumeric("YlOrRd", people)(people),
+    fillOpacity = 0.7,
+    color = "white",
+    weight = 1,
+    highlight = highlightOptions(
+      weight = 2,
+      color = "#666",
+      fillOpacity = 0.7,
+      bringToFront = TRUE
+    ),
+    label = ~paste(name, "<br>", "people: ", people, sep = "")
+  )
+
+# Add a legend
+map <- map %>%
+  addLegend(
+    data = merged_data,
+    position = "bottomright",
+    pal = colorNumeric("YlOrRd", merged_data$people),
+    values = ~people,
+    title = "Number of People Evacuated to:",
+    opacity = 1
+  )
+
+# Display the map
+map
+```
+
+save map
+
+```{r, eval = FALSE}
+mapshot(map, file = "map.png")
+```
+
+## Models
+
+### logistic regression
+
+```{r}
+
+```
+
+```{r}
+#plot to visualize outcome
+gg <- ggplot(data = hurricane, aes(x = income, y = didmove)) + 
+  geom_jitter(width = 0, height = 0.05, alpha = 0.8) +
+   labs(x = "income", y = "Moved out of NO") 
+gg
+```
+
+```{r}
+#filtering and fixing for model setup
+
+hurricane <- hurricane %>% mutate_at(c("age"), as.numeric) %>% mutate_at(c("white", "hispanic", "black", "fulltime", "partime", "selfempfull", "selfemppart", "laidoff", "unemployed", "disabled","student", "apartment", "singlefam", "duplex", "own.rent"), as.character) 
+
+hurricane <- hurricane %>% filter(!is.na(didmove))
+
+#for everything
+hurricane <- hurricane %>% mutate(across((white:hispanic | fulltime:student | apartment:duplex),~replace_na(.x, "0"))) %>% mutate(didmove = as.factor(didmove))
+
+```
+
+Models (added step wise to address OBV)
+
+```{r}
+#adding variables by catagory 
+#age test
+hurrmodel1 <- glm(didmove ~ age, family = "binomial", data = hurricane)
+#more demographics
+hurrmodel2 <- glm(didmove ~ age + sex + white + black + hispanic, family = "binomial", data = hurricane)
+# + job and income
+hurrmodel3 <- glm(didmove ~ age + sex + pre_marriagestat + white + black + hispanic + health.before + schooling + fulltime + partime + selfempfull + selfemppart + laidoff + unemployed + disabled + student + income, family = "binomial", data = hurricane)
+# + housing factors
+hurrmodel4 <- glm(didmove ~ age + sex + pre_marriagestat + white + black + hispanic + health.before  + schooling + fulltime + partime + selfempfull + selfemppart + laidoff + unemployed + disabled + student + income + apartment + singlefam + duplex + own.rent, family = "binomial", data = hurricane)
+# + hurricane factors 
+hurrmodel5 <- glm(didmove ~ age + sex + pre_marriagestat + white + black + hispanic + health.before + schooling + fulltime + partime + selfempfull + selfemppart + laidoff + unemployed + disabled + student + income + apartment + singlefam + duplex + own.rent + evac.state + res.damage, family = "binomial", data = hurricane)
+# add interaction effect to test
+hurrmodel6 <- glm(didmove ~ age + sex + pre_marriagestat + white + black + hispanic + health.before + schooling + fulltime + partime + selfempfull + selfemppart + laidoff + unemployed + disabled + student + income + apartment + singlefam + duplex + own.rent + evac.state + res.damage + own.rent*res.damage, family = "binomial", data = hurricane)
+
+model_list = list(   
+                "age only simple model" = hurrmodel1,
+                "adding race and demogrpahic factors" = hurrmodel2,
+                "adding job and income"= hurrmodel3,
+                "with housing factors" = hurrmodel4,
+                "hurricane factors"= hurrmodel5, 
+                "with res dmg x own or rent interaction" = hurrmodel6)
+modelsummary(model_list, stars = TRUE, caption = "Regression models of variables predicting move or did not move back to NO after Hurricane Katrina with Standard Errors")
+
+```
+
+```{r}
+# runnign again with matched sample sizes 
+hurricane2 <- augment(hurrmodel6) 
+#age test
+hurrmodel1 <- glm(didmove ~ age, family = "binomial", data = hurricane)
+#more demographics
+hurrmodel2 <- glm(didmove ~ age + sex + pre_marriagestat + white + black + hispanic + health.before, family = "binomial", data = hurricane2)
+# + job and income
+hurrmodel3 <- glm(didmove ~ age + sex + pre_marriagestat + white + black + hispanic + health.before + schooling + fulltime + partime + selfempfull + selfemppart + laidoff + unemployed + disabled + student + income, family = "binomial", data = hurricane2)
+# + housing factors
+hurrmodel4 <- glm(didmove ~ age + sex + pre_marriagestat + white + black + hispanic + health.before  + schooling + fulltime + partime + selfempfull + selfemppart + laidoff + unemployed + disabled + student + income + apartment + singlefam + duplex + own.rent, family = "binomial", data = hurricane2)
+# + hurricane factors 
+hurrmodel5 <- glm(didmove ~ age + sex + pre_marriagestat + white + black + hispanic + health.before + schooling + fulltime + partime + selfempfull + selfemppart + laidoff + unemployed + disabled + student + income + apartment + singlefam + duplex + own.rent + evac.state + res.damage, family = "binomial", data = hurricane)
+# add interaction effect to test
+hurrmodel6 <- glm(didmove ~ age + sex + pre_marriagestat + white + black + hispanic + health.before + schooling + fulltime + partime + selfempfull + selfemppart + laidoff + unemployed + disabled + student + income + apartment + singlefam + duplex + own.rent + evac.state + res.damage + own.rent*res.damage, family = "binomial", data = hurricane)
+
+model_list = list(   
+                "age only simple model" = hurrmodel1,
+                "adding race and demogrpahic factors" = hurrmodel2,
+                "adding job and income"= hurrmodel3,
+                "with housing factors" = hurrmodel4,
+                "hurricane factors"= hurrmodel5, 
+                "with res dmg x own or rent interaction" = hurrmodel6)
+modelsummary(model_list, stars = TRUE, caption = "Regression models of variables predicting move or did not move back to NO after Hurricane Katrina")
+```
+
+model with just demographic and hurricane variables of interest + a few control variables
+
+```{r}
+#model
+hurrmodel7 <- glm(didmove ~ age + sex  + white + black + hispanic + income + schooling + fulltime + partime + selfempfull + selfemppart + laidoff + unemployed + disabled + student + own.rent + evac.state + res.damage + own.rent*res.damage, family = "binomial", data = hurricane)
+modelsummary(("Model with interaction effect" = hurrmodel7), stars = TRUE, caption = "risk factors, controls")
+```
+
+```{r}
+#no interaction 
+hurrmodel8 <- glm(didmove ~ age + sex  + white + black + hispanic + income + schooling + fulltime + partime + selfempfull + selfemppart + laidoff + unemployed + disabled + student + own.rent + evac.state + res.damage, family = "binomial", data = hurricane)
+model_list = list(
+  " With Interaction Between owning/Renting and Residance Damage" = hurrmodel7, 
+   "Without Interaction"= hurrmodel8           )
+modelsummary(model_list, stars = TRUE, caption = "Table 3. Multivariate Logistic Regression Model Predicting Moved Away/Moved Back to NO with Standard Errors", output = "logisitcregressiontable.png")
+```
+
+```{r}
+#odds ratio making 
+odds <-exp(coef(hurrmodel8))
+
+exp(cbind(Odds_Ratio = coef(hurrmodel8), confint(hurrmodel8)))
+```
+
+```{r}
+# for interaction model
+exp(cbind(Odds_Ratio = coef(hurrmodel7), confint(hurrmodel7)))
+```
+
+Analysis 2
+
+t-test for a difference in health from those who moved vs those who didn't move
+
+q37 is a general stress measure for katrina
+
+q31-36 depression and anxiety qs, lowest scores = highest depression
+
+```{r}
+# testing didmove and depression score
+hurricane <- hurricane %>% filter(!is.na(didmove))
+
+#calc depression score 
+hurricane <- hurricane %>% mutate(across(q31:q37, ~as.numeric(.x))) 
+
+x <- hurricane %>% select(q31:q36)
+
+hurricane3 <- hurricane %>% 
+  mutate(depressionscore = rowSums(x))
+
+#health score
+
+hurricane3 <- hurricane3 %>% mutate(across(health.before:health.after, ~as.numeric(.x)))
+
+hurricane4 <- hurricane3 %>% 
+  mutate(healthscore =(health.after - health.before))
+
+
+```
+
+t tests
+
+comparison of means needs to be troubleshoot
+
+```{r}
+
+q37means <- hurricane3 %>% group_by(didmove2) %>%
+  summarise( "mean HK stress score" = mean(q37, na.rm=TRUE))
+knitr::kable(q37means, caption = "Mean Stress Scores by Group")
+
+#new cuter table thats why cooler and i like it more i hope 
+datasummary((`Stress Index` = q37) + (`Depression Index` = depressionscore) + (`Health Change` = healthscore) ~ didmove2 * (mean*Arguments(na.rm=TRUE)),
+            data = hurricane4, caption = "Compairison of Means Between Groups")
+```
+
+```{r}
+# general stress
+t.test <- t.test( q37 ~ didmove, data = hurricane3, na.rm = TRUE)
+
+t.stress <- nice_t_test(
+  data = hurricane3, 
+  response = "q37",
+  group = "didmove",
+  warning = FALSE
+)
+ stress.table <- nice_table(t.stress)
+ stress.table
+ t.test
+```
+
+depression t-tests
+
+means table
+
+```{r}
+demeans <- hurricane3 %>% group_by(didmove2) %>%
+  summarise( "mean depression score" = mean(depressionscore, na.rm=TRUE))
+knitr::kable(demeans, caption = "Mean Depression Scores by Group")
+```
+
+```{r}
+# general stress
+t.test2 <- t.test( depressionscore ~ didmove, data = hurricane3, na.rm = TRUE)
+
+t.depression <- nice_t_test(
+  data = hurricane3, 
+  response = "depressionscore",
+  group = "didmove",
+  warning = FALSE
+)
+ depression.table <- nice_table(t.depression)
+ depression.table
+ t.test2
+```
+
+```{r}
+
+#test for health change variable 
+t.test3 <- t.test( healthscore ~ didmove, data = hurricane4, na.rm = TRUE)
+
+t.health <- nice_t_test(
+  data = hurricane4, 
+  response = "healthscore",
+  group = "didmove",
+  warning = FALSE
+)
+ health.table <- nice_table(t.health)
+ health.table
+ modelsummary(t.test3,  output = "table.tex")
+```
+
+final t test table
+
+```{r}
+new_col <- data.frame(`P Value` = c(.002, .012, .082), `95 Percent CIs` = c("[-1.02 - 0.16]","[0.05 - 0.91]","[-0.49 - 0.36]"))
+
+
+#new cuter table thats why cooler and i like it more i hope 
+datasummary((`Stress Index` = q37) + (`Depression Index` = depressionscore) + (`Health Change` = healthscore) ~ didmove2 * (mean*Arguments(na.rm=TRUE)),
+            data = hurricane4, 
+            caption = "T-tests Between Moved Away and Moved Back", 
+            add_columns = (new_col ), 
+            digits = 4, 
+            output = "ttests.png")
 ```
