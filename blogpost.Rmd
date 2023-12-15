@@ -1,17 +1,20 @@
 ---
-title: "eds222 final"
+title: Understanding Displacement from Hurricane Katrina; Risk Factors, Health, and
+  Wellbeing Outcomes
 author: "Emily Cobb"
-date: "2023-11-30"
-output: html_document
+date: "2023-12-15"
+output:
+  html_document:
+    df_print: paged
+  word_document: default
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = FALSE)
 ```
 
-## Package loading and data setup
-
-```{r packages}
+```{r, include=FALSE}
+#packages
 # Load all the packages needed here
 library(tidyverse)
 library(readr)
@@ -27,15 +30,11 @@ library(rempsyc)
 library(htmlwidgets)
 library(webshot)
 library(mapview)
+
 ```
 
-Data import and cleaning
-
-```{r}
+```{r, include=FALSE}
 hurricane <- read_csv("hurricanedisplacement2005.csv")
-```
-
-```{r}
 #fix data errors and change names to their abv
 hurricane<- hurricane %>% 
 mutate(across(where(is.numeric), ~abs(.))) %>%
@@ -49,21 +48,11 @@ mutate(across(where(is.numeric), ~abs(.))) %>%
       str_detect(state.most.time, "OKLAHOMA") ~ "OK",
       str_detect(state.most.time, "FLA") ~ "FL",
        TRUE ~ state.most.time ))
-```
-
-```{r}
 #change to factor variables 
   hurricane <- hurricane %>% mutate(across(where(is.numeric), as.factor))
-```
-
-```{r}
-#make new outcome variable binary-- did leave state or did not 
-hurricane <- hurricane %>% mutate("didmove"= ifelse(lives.NO.still == c("2","3"), 1, 0 ))
+  hurricane <- hurricane %>% mutate("didmove"= ifelse(lives.NO.still == c("2","3"), 1, 0 ))
 # labels for plots  
 hurricane <- hurricane %>% mutate("didmove2"= ifelse(lives.NO.still == c("1"), "Moved Away", "Moved Back" ))
-```
-
-```{r}
 #fix race and work variables 
 hurricane <- hurricane %>% 
   mutate("white" = ifelse(white == c("1"), "1", "0" )) %>%
@@ -77,18 +66,48 @@ hurricane <- hurricane %>%
   mutate("disabled" = ifelse(disabled== c("7"), 1, 0 )) %>% 
   mutate("student" = ifelse(student == c("9"), 1, 0))
   hurricane <- hurricane %>% mutate(across(where(is.numeric), as.character)) 
+  #fix race and work variables 
+hurricane <- hurricane %>% 
+  mutate("white" = ifelse(white == c("1"), "1", "0" )) %>%
+  mutate("black" = ifelse(black == c("2"), "1", "0" )) %>%
+  mutate("hispanic" = ifelse(hispanic == c("3"), "1", "0" )) %>%
+  mutate("partime" = ifelse(partime == c("2"), "1", "0" )) %>%
+  mutate("selfempfull" = ifelse(selfempfull == c("3"), "1", "0" )) %>%
+  mutate("laidoff" = ifelse(laidoff == c("5"), 1, 0 )) %>% 
+  mutate("selfemppart" = ifelse(selfemppart == c("4"), 1, 0 )) %>% 
+  mutate("unemployed" = ifelse(unemployed == c("6"), 1, 0 )) %>% 
+  mutate("disabled" = ifelse(disabled== c("7"), 1, 0 )) %>% 
+  mutate("student" = ifelse(student == c("9"), 1, 0))
+  hurricane <- hurricane %>% mutate(across(where(is.numeric), as.character))
 ```
 
-## Plotting
+## Introduction
+
+As an Anthropologist, my central research focuses on the biological embodiment of environmental conditions, and how this embodiment affects overall health and wellbeing, both mental and physical. My main topics consist of the pathways and biological mechanisms in which this embodiment happens, understanding the larger circumstances causing environmental/biological stressors is becoming increasingly important. I also have interests in how environmental stressors inflict life change based on personal experience, and how these stressors can either lead to differing health outcomes. Long term, I want to examine resilience factors in this context, to understand what factors help decrease negative health outcomes in hopes of developing interventions. For the following project, I am working on the effects of natural disaster based displacement, examining risk factors for displacement and if displaced groups different in their mental and perceived overall health outcomes. As climate change is increasing the amount of natural disasters and increasing potential to induce large scale population movement (Oliver-Smith, 2009; McCarney & Kent 2020), understanding displacement from these events as a psychosocial stressor is necessary to be able to combat it and improve population health in times of uncertainty. Address risk factors of being in a displaced group also helps target interventions to those who may be more at risk.
+
+To attempt to answer this question, I will be working with data from the Displaced New Orleans Residents pilot study. This data is publicly available and focuses on New Orleans (NO) residents who experienced Hurricane Katrina (HK) in 2005. Unfortunately, the data from the following study is only available upon request and I was not able to obtain access for this project. The pilot study data consists of survey data collected by phone, visits, and through mail throughout 2006, targeting residents in areas of the city affected by damage from HK. As the frequency of strong hurricanes (category 4/5) are theorized to increase (D. K. Cobb, Personal Communication, December 7, 2023) along with climate change, understanding hurricane related displacement in coastal areas is a target area for research on anticipated displacement.Survey questions included sociodemographic factors, hurricane impact related scales, and evacuation and displacement measures. Complete sample size for all questions is n = 131. Data does not contain any time series or real spatial points for neighborhood related analyses, aside from state evacuated to, preventing time series or spatial analysis techniques.
+
+A growing body of work on natural disaster displacement patterns contends with the corresponding effect of displacement on mental health outcomes. In 1991, Morrow-Jones H. & Morrow-Jones C. (1991) report that there are significant differences in those who move due to a natural disaster compared those who move due to unrelated reasons. They report mixed potential effects of socio-economic status (SES) on displacement outcomes, stating that higher SES is usually related to a higher success of returning. However, the measurable effect of this has been ambiguous.The effect of homeownership is also ambiguous, as homeowners have less mobility than renters, but renters have less control over fixing residence damage. It has been suggested that as homeownership is associated with higher SES, that homeowners might have better outcomes when moving becomes a necessity. Black people have also been historically affected more by displacement during natural disasters, and this has been attributed to historical segregation of neighborhoods and damage patterns in those neighborhoods (Graif, 2016)\*\*.\*\* Other work on HK has demonstrated these patterns, so race is expected to be a significant factor in these models (Graif, 2016).
+
+Morrow-Jones H. & Morrow-Jones C. (1991) also report a high incidence of depression and increased stress levels among displaced movers compared to non-displaced movers. Swartz et al. (2018), in a study of NY residents affected by Hurricane Sandy, found that displacement was also positively associated with a higher risk of developing PTSD. This mental health impact is also unequal among groups and those experiencing severe disability, experiencing disability or being displaced into a disaster shelter both increased the risk of negative mental health effects. Burrows et al. (2021) also found that higher income reduces the negative mental effects from displacement as well. Overall, displacement has been found to increase stress levels and result in poorer mental health outcomes, but more research is needed to clarify these relationships.
+
+### Analysis
+
+Burrows et al. (2021) was used as a reference for the analyses as preformed here. Burrows et al. implemented logistic regression models with sociodemographic factors to predict displacement and Welch Two Sample T-Tests to determine differences in mental health outcomes in displaced versus non-displaced groups.
+
+#### Multivariate Logistic Regression
+
+Burrows et al. (2021) examined displacement due to landslides in Indonesia, so while there is variability in data structure between their dataset and this one, I am their approach of using a binary outcome variable. I\\'ve created a binary outcome variable based on whether the individual in the sample relocated after HK or did not relocated (moved back or did not evacuate originally.) As for predictors, sociodemographic factors will be included as control variables, along with housing data, state moved to, and damage to residence from HK. Variables included were motivated by previous literature as described above. A model with an interaction effect between renting or owning and damage to residence is included to try and access the differing effect of residence damage based on ownership.The aim of this model is to identify risk factors associated with a higher probability of displacement to characterize displaced versus non displaced groups.
+
+#### Welch Two Sample T-tests
+
+Three t-tests were also ran to determine if significant differences in mental health outcomes exist between displaced and non displaced groups. The first t-test compared general stress scores between these groups in response to HK, a 10 point scale with 1 being least stressed and 10 being most stressed. For the second test, a depression score was calculated from q31-36 included in the survey data, aimed at quantifying depression symptoms to compare between groups, lowest scores indicate higher depression occurrence. For the third test, a health change score was calculated from before and after self rated health measures included in the survey, and change in health was compared across groups. Negative score represents perceived decrease in health after HK, and positive scores indicate a perceived increase in health.
+
+### Results
+
+#### Summary Tables and Figures
 
 ```{r}
-#summary stats and overview
-datasummary_balance(~ 1, data = hurricane, caption = "summary of dataset")
-```
-
-```{r}
-#summary of did move vs moved groups 
-
 hurricanestats <- hurricane %>% select(
   didmove2, 
   "Black" = black,
@@ -111,223 +130,36 @@ hurricanestats <- hurricane %>% select(
   "Income" = income
 )
 
-caption <- "Compairison of Sociodemogrpahic and Housing/Hurricane Displacement Variables Between Moved and Moved Back Groups"
+caption <- "Table 1. Compairison of Sociodemogrpahic and Housing/Hurricane Displacement Variables Between Moved and Moved Back Groups"
 
 datasummary_balance(~didmove2,
                     data = hurricanestats,
                     title = caption)
-                
 ```
 
-```{r}
-#make summary of evacuation states for chloropelth map
-evac.summary <- hurricane %>% 
-  group_by(evac.state) %>%
-  summarise( people = n())
-```
+Table 1. looks at summary statistics for each group. As shown by the sample sizes, more people moved away (n = 94) then moved back (n = 52) to NO after HK. Racial makeup of the sample seems roughly distributed among Black and White people, with more Black than White people reporting moving back to NO. A small portion of our sample reports experiencing disability (n = 10), so disability will be left out of our model due to sample size concerns, even if Swartz et al. (2018) found disability to be a significant predictor. 
 
-```{r}
-#change names in state variable to merge better
-evac.summary <- evac.summary %>%
-  mutate(
-   evac.state  = case_when(
-      str_detect(evac.state, "GA") ~ "Georgia",
-      str_detect(evac.state, "AL") ~ "Alabama",
-      str_detect(evac.state, "FL") ~ "Florida",
-      str_detect(evac.state, "LA") ~ "Louisiana",
-      str_detect(evac.state, "MA") ~ "Massachusetts",
-      str_detect(evac.state, "MS") ~ "Mississippi",
-      str_detect(evac.state, "NC") ~ "North Carolina",
-      str_detect(evac.state, "TN") ~ "Tennessee",
-      str_detect(evac.state, "TX") ~ "Texas",
-      str_detect(evac.state, "AR") ~ "Arkansas",
-       TRUE ~ evac.state  # Keep the original value if none of the conditions are met
-    ))
+![Figure 2. Map showing dispersal of evacuations during HK](images/map.png)
 
-```
+Figure 2. looks at patterns of evacuations of NO residents in the sample after HK. Most residents evacuated within the state of LA (n = 58). The neighboring states of  TX (n =36) and MS (n = 17) had the next highest amounts of evacuees. The farthest dispersal was to MA, where a single individual reported relocating to. Most dispersal was located in the southeastern region of the US. 
 
-map making
-
-```{r , eval = FALSE}
-#map
-states <- geojsonio::geojson_read("https://rstudio.github.io/leaflet/json/us-states.geojson", what = "sp")
-
-merged_data <- merge(states, evac.summary, by.x = "name", by.y = "evac.state", x.all = TRUE)
-
-
-# Create a Leaflet map
-map <- leaflet() %>%
-  addProviderTiles("CartoDB.Positron") %>%
-  setView(lng = -96, lat = 37.8, zoom = 4)  # Adjust the view as needed
-
-#map
-map <- map %>%
-  addPolygons(
-    data = merged_data,
-    fillColor = ~colorNumeric("YlOrRd", people)(people),
-    fillOpacity = 0.7,
-    color = "white",
-    weight = 1,
-    highlight = highlightOptions(
-      weight = 2,
-      color = "#666",
-      fillOpacity = 0.7,
-      bringToFront = TRUE
-    ),
-    label = ~paste(name, "<br>", "people: ", people, sep = "")
-  )
-
-# Add a legend
-map <- map %>%
-  addLegend(
-    data = merged_data,
-    position = "bottomright",
-    pal = colorNumeric("YlOrRd", merged_data$people),
-    values = ~people,
-    title = "Number of People Evacuated to:",
-    opacity = 1
-  )
-
-# Display the map
-map
-```
-
-save map
-
-```{r, eval = FALSE}
-mapshot(map, file = "map.png")
-```
-
-## Models
-
-### logistic regression
-
-```{r}
-
-```
-
-```{r}
-#plot to visualize outcome
-hurricane2 <- hurricane %>% filter(!is.na(didmove))
-gg <- ggplot(data = hurricane2, aes(x = income, y = didmove)) + 
-  geom_jitter(width = 0, height = 0.08, alpha = 0.5) +
-   labs(x = "income", y = "Moved out of NO") 
-gg +  geom_smooth(method = "glm", se = FALSE, color = "red", 
-              method.args = list(family = "binomial"))
-```
-
-```{r}
-#filtering and fixing for model setup
-
-hurricane <- hurricane %>% mutate_at(c("age"), as.numeric) %>% mutate_at(c("white", "hispanic", "black", "fulltime", "partime", "selfempfull", "selfemppart", "laidoff", "unemployed", "disabled","student", "apartment", "singlefam", "duplex", "own.rent"), as.character) 
-
-hurricane <- hurricane %>% filter(!is.na(didmove))
-
-#for everything
-hurricane <- hurricane %>% mutate(across((white:hispanic | fulltime:student | apartment:duplex),~replace_na(.x, "0"))) %>% mutate(didmove = as.factor(didmove))
-
-```
-
-Models (added step wise to address OBV)
-
-```{r}
-#adding variables by catagory 
-#age test
-hurrmodel1 <- glm(didmove ~ age, family = "binomial", data = hurricane)
-#more demographics
-hurrmodel2 <- glm(didmove ~ age + sex + white + black + hispanic, family = "binomial", data = hurricane)
-# + job and income
-hurrmodel3 <- glm(didmove ~ age + sex + pre_marriagestat + white + black + hispanic + health.before + schooling + fulltime + partime + selfempfull + selfemppart + laidoff + unemployed + disabled + student + income, family = "binomial", data = hurricane)
-# + housing factors
-hurrmodel4 <- glm(didmove ~ age + sex + pre_marriagestat + white + black + hispanic + health.before  + schooling + fulltime + partime + selfempfull + selfemppart + laidoff + unemployed + disabled + student + income + apartment + singlefam + duplex + own.rent, family = "binomial", data = hurricane)
-# + hurricane factors 
-hurrmodel5 <- glm(didmove ~ age + sex + pre_marriagestat + white + black + hispanic + health.before + schooling + fulltime + partime + selfempfull + selfemppart + laidoff + unemployed + disabled + student + income + apartment + singlefam + duplex + own.rent + evac.state + res.damage, family = "binomial", data = hurricane)
-# add interaction effect to test
-hurrmodel6 <- glm(didmove ~ age + sex + pre_marriagestat + white + black + hispanic + health.before + schooling + fulltime + partime + selfempfull + selfemppart + laidoff + unemployed + disabled + student + income + apartment + singlefam + duplex + own.rent + evac.state + res.damage + own.rent*res.damage, family = "binomial", data = hurricane)
-
-model_list = list(   
-                "age only simple model" = hurrmodel1,
-                "adding race and demogrpahic factors" = hurrmodel2,
-                "adding job and income"= hurrmodel3,
-                "with housing factors" = hurrmodel4,
-                "hurricane factors"= hurrmodel5, 
-                "with res dmg x own or rent interaction" = hurrmodel6)
-modelsummary(model_list, stars = TRUE, caption = "Regression models of variables predicting move or did not move back to NO after Hurricane Katrina with Standard Errors")
-
-```
-
-```{r}
-# runnign again with matched sample sizes 
-hurricane2 <- augment(hurrmodel6) 
-#age test
-hurrmodel1 <- glm(didmove ~ age, family = "binomial", data = hurricane)
-#more demographics
-hurrmodel2 <- glm(didmove ~ age + sex + pre_marriagestat + white + black + hispanic + health.before, family = "binomial", data = hurricane2)
-# + job and income
-hurrmodel3 <- glm(didmove ~ age + sex + pre_marriagestat + white + black + hispanic + health.before + schooling + fulltime + partime + selfempfull + selfemppart + laidoff + unemployed + disabled + student + income, family = "binomial", data = hurricane2)
-# + housing factors
-hurrmodel4 <- glm(didmove ~ age + sex + pre_marriagestat + white + black + hispanic + health.before  + schooling + fulltime + partime + selfempfull + selfemppart + laidoff + unemployed + disabled + student + income + apartment + singlefam + duplex + own.rent, family = "binomial", data = hurricane2)
-# + hurricane factors 
-hurrmodel5 <- glm(didmove ~ age + sex + pre_marriagestat + white + black + hispanic + health.before + schooling + fulltime + partime + selfempfull + selfemppart + laidoff + unemployed + disabled + student + income + apartment + singlefam + duplex + own.rent + evac.state + res.damage, family = "binomial", data = hurricane)
-# add interaction effect to test
-hurrmodel6 <- glm(didmove ~ age + sex + pre_marriagestat + white + black + hispanic + health.before + schooling + fulltime + partime + selfempfull + selfemppart + laidoff + unemployed + disabled + student + income + apartment + singlefam + duplex + own.rent + evac.state + res.damage + own.rent*res.damage, family = "binomial", data = hurricane)
-
-model_list = list(   
-                "age only simple model" = hurrmodel1,
-                "adding race and demogrpahic factors" = hurrmodel2,
-                "adding job and income"= hurrmodel3,
-                "with housing factors" = hurrmodel4,
-                "hurricane factors"= hurrmodel5, 
-                "with res dmg x own or rent interaction" = hurrmodel6)
-modelsummary(model_list, stars = TRUE, caption = "Regression models of variables predicting move or did not move back to NO after Hurricane Katrina")
-```
-
-model with just demographic and hurricane variables of interest + a few control variables
-
-```{r}
-#model
-hurrmodel7 <- glm(didmove ~ age + sex  + white + black + hispanic + income + schooling + fulltime + partime + selfempfull + selfemppart + laidoff + unemployed + disabled + student + own.rent + evac.state + res.damage + own.rent*res.damage, family = "binomial", data = hurricane)
-modelsummary(("Model with interaction effect" = hurrmodel7), stars = TRUE, caption = "risk factors, controls")
-```
+#### Logistic Models
 
 ```{r}
 #no interaction 
+hurrmodel7 <- glm(didmove ~ age + sex  + white + black + hispanic + income + schooling + fulltime + partime + selfempfull + selfemppart + laidoff + unemployed + disabled + student + own.rent + evac.state + res.damage + own.rent*res.damage, family = "binomial", data = hurricane)
 hurrmodel8 <- glm(didmove ~ age + sex  + white + black + hispanic + income + schooling + fulltime + partime + selfempfull + selfemppart + laidoff + unemployed + disabled + student + own.rent + evac.state + res.damage, family = "binomial", data = hurricane)
 model_list = list(
   " With Interaction Between owning/Renting and Residance Damage" = hurrmodel7, 
    "Without Interaction"= hurrmodel8           )
-modelsummary(model_list, stars = TRUE, caption = "Table 3. Multivariate Logistic Regression Model Predicting Moved Away/Moved Back to NO with Standard Errors", output = "logisitcregressiontable.png")
+modelsummary(model_list, stars = TRUE, caption = "Table 3. Multivariate Logistic Regression Model Predicting Moved Away/Moved Back to NO with Standard Errors")
 ```
 
-```{r}
-#plot effects for interaction model 
-plot(effect("income", hurrmodel7))
-```
+There are not any significant differences between the interaction model and the non interaction model shown comparatively in Table 3. Neither owning/renting, damage to residence, and the interaction effect between the two were of statistical significance. Out of the other predictors, the only variable of significance (p = \< .05) in both models was having an income level of 3 (Moved Away n = 4, Moved Back n = 12) which consists of individuals in households making \$2,000 to just under \$3,000 after taxes per month. The comparison group for this sample is income level 1, consisting of those making a household income of \< 1000\$ a month. The odds ratio of income 3 for the non-interaction model is 137.4764 (95% confidence interval:[3.851375e+00 - 2.706765e+04], representing a 137.4764 times higher chance of moving away if the person\'s income level was in this group. The odds ratio of income 3 for the interaction model is  159.2625 (95% confidence interval:[3.770685e+00 - 3.200791e+04], representing a 159.2625 times higher chance of moving away if the person\'s income level was in this group. No other hurricane, housing, or sociodemographic variables were under the alpha = .05 threshold for significance. These CIs are quite large, but do not pass below 1, suggesting that they show a significant effect on being in this income category.
 
-```{r}
-#odds ratio making 
-odds <-exp(coef(hurrmodel8))
+#### T Tests 
 
-exp(cbind(Odds_Ratio = coef(hurrmodel8), confint(hurrmodel8)))
-```
-
-```{r}
-# for interaction model
-exp(cbind(Odds_Ratio = coef(hurrmodel7), confint(hurrmodel7)))
-```
-
-Analysis 2
-
-t-test for a difference in health from those who moved vs those who didn't move
-
-q37 is a general stress measure for katrina
-
-q31-36 depression and anxiety qs, lowest scores = highest depression
-
-```{r}
-# testing didmove and depression score
-hurricane <- hurricane %>% filter(!is.na(didmove))
-
+```{r, include=FALSE}
 #calc depression score 
 hurricane <- hurricane %>% mutate(across(q31:q37, ~as.numeric(.x))) 
 
@@ -343,81 +175,7 @@ hurricane3 <- hurricane3 %>% mutate(across(health.before:health.after, ~as.numer
 hurricane4 <- hurricane3 %>% 
   mutate(healthscore =(health.after - health.before))
 
-
 ```
-
-t tests
-
-comparison of means needs to be troubleshoot
-
-```{r}
-
-q37means <- hurricane3 %>% group_by(didmove2) %>%
-  summarise( "mean HK stress score" = mean(q37, na.rm=TRUE))
-knitr::kable(q37means, caption = "Mean Stress Scores by Group")
-
-#new cuter table thats why cooler and i like it more i hope 
-datasummary((`Stress Index` = q37) + (`Depression Index` = depressionscore) + (`Health Change` = healthscore) ~ didmove2 * (mean*Arguments(na.rm=TRUE)),
-            data = hurricane4, caption = "Compairison of Means Between Groups")
-```
-
-```{r}
-# general stress
-t.test <- t.test( q37 ~ didmove, data = hurricane3, na.rm = TRUE)
-
-t.stress <- nice_t_test(
-  data = hurricane3, 
-  response = "q37",
-  group = "didmove",
-  warning = FALSE
-)
- stress.table <- nice_table(t.stress)
- stress.table
- t.test
-```
-
-depression t-tests
-
-means table
-
-```{r}
-demeans <- hurricane3 %>% group_by(didmove2) %>%
-  summarise( "mean depression score" = mean(depressionscore, na.rm=TRUE))
-knitr::kable(demeans, caption = "Mean Depression Scores by Group")
-```
-
-```{r}
-# general stress
-t.test2 <- t.test( depressionscore ~ didmove, data = hurricane3, na.rm = TRUE)
-
-t.depression <- nice_t_test(
-  data = hurricane3, 
-  response = "depressionscore",
-  group = "didmove",
-  warning = FALSE
-)
- depression.table <- nice_table(t.depression)
- depression.table
- t.test2
-```
-
-```{r}
-
-#test for health change variable 
-t.test3 <- t.test( healthscore ~ didmove, data = hurricane4, na.rm = TRUE)
-
-t.health <- nice_t_test(
-  data = hurricane4, 
-  response = "healthscore",
-  group = "didmove",
-  warning = FALSE
-)
- health.table <- nice_table(t.health)
- health.table
- modelsummary(t.test3,  output = "table.tex")
-```
-
-final t test table
 
 ```{r}
 new_col <- data.frame(`P Value` = c(.002, .012, .082), `95 Percent CIs` = c("[-1.02 - 0.16]","[0.05 - 0.91]","[-0.49 - 0.36]"))
@@ -426,7 +184,7 @@ new_col <- data.frame(`P Value` = c(.002, .012, .082), `95 Percent CIs` = c("[-1
 #new cuter table thats why cooler and i like it more i hope 
 datasummary((`Stress Index` = q37) + (`Depression Index` = depressionscore) + (`Health Change` = healthscore) ~ didmove2 * (mean*Arguments(na.rm=TRUE)),
             data = hurricane4, 
-            caption = "T-tests Between Moved Away and Moved Back", 
+            caption = "Table 4. T-tests Between Moved Away and Moved Back for Stress Index, Depression Index, and Health Score Change with P-values and 95% CIs", 
             add_columns = (new_col ), 
             digits = 4)
 ```
