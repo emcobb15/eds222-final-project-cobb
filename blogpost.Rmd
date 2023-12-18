@@ -7,6 +7,7 @@ output:
   html_document:
     df_print: paged
   word_document: default
+  pdf_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -66,19 +67,14 @@ hurricane <- hurricane %>%
   mutate("disabled" = ifelse(disabled== c("7"), 1, 0 )) %>% 
   mutate("student" = ifelse(student == c("9"), 1, 0))
   hurricane <- hurricane %>% mutate(across(where(is.numeric), as.character)) 
-  #fix race and work variables 
-hurricane <- hurricane %>% 
-  mutate("white" = ifelse(white == c("1"), "1", "0" )) %>%
-  mutate("black" = ifelse(black == c("2"), "1", "0" )) %>%
-  mutate("hispanic" = ifelse(hispanic == c("3"), "1", "0" )) %>%
-  mutate("partime" = ifelse(partime == c("2"), "1", "0" )) %>%
-  mutate("selfempfull" = ifelse(selfempfull == c("3"), "1", "0" )) %>%
-  mutate("laidoff" = ifelse(laidoff == c("5"), 1, 0 )) %>% 
-  mutate("selfemppart" = ifelse(selfemppart == c("4"), 1, 0 )) %>% 
-  mutate("unemployed" = ifelse(unemployed == c("6"), 1, 0 )) %>% 
-  mutate("disabled" = ifelse(disabled== c("7"), 1, 0 )) %>% 
-  mutate("student" = ifelse(student == c("9"), 1, 0))
-  hurricane <- hurricane %>% mutate(across(where(is.numeric), as.character))
+  #filtering and fixing for model setup
+
+hurricane <- hurricane %>% mutate_at(c("age"), as.numeric) %>% mutate_at(c("white", "hispanic", "black", "fulltime", "partime", "selfempfull", "selfemppart", "laidoff", "unemployed", "disabled","student", "apartment", "singlefam", "duplex", "own.rent"), as.character) 
+
+hurricane <- hurricane %>% filter(!is.na(didmove))
+
+#for everything
+hurricane <- hurricane %>% mutate(across((white:hispanic | fulltime:student | apartment:duplex),~replace_na(.x, "0"))) %>% mutate(didmove = as.factor(didmove))
 ```
 
 ## Introduction
@@ -145,7 +141,7 @@ Figure 2. looks at patterns of evacuations of NO residents in the sample after H
 
 #### Logistic Models
 
-```{r}
+```{r, warning=FALSE}
 #no interaction 
 hurrmodel7 <- glm(didmove ~ age + sex  + white + black + hispanic + income + schooling + fulltime + partime + selfempfull + selfemppart + laidoff + unemployed + disabled + student + own.rent + evac.state + res.damage + own.rent*res.damage, family = "binomial", data = hurricane)
 hurrmodel8 <- glm(didmove ~ age + sex  + white + black + hispanic + income + schooling + fulltime + partime + selfempfull + selfemppart + laidoff + unemployed + disabled + student + own.rent + evac.state + res.damage, family = "binomial", data = hurricane)
@@ -155,11 +151,13 @@ model_list = list(
 modelsummary(model_list, stars = TRUE, caption = "Table 3. Multivariate Logistic Regression Model Predicting Moved Away/Moved Back to NO with Standard Errors")
 ```
 
-There are not any significant differences between the interaction model and the non interaction model shown comparatively in Table 3. Neither owning/renting, damage to residence, and the interaction effect between the two were of statistical significance. Out of the other predictors, the only variable of significance (p = \< .05) in both models was having an income level of 3 (Moved Away n = 4, Moved Back n = 12) which consists of individuals in households making \$2,000 to just under \$3,000 after taxes per month. The comparison group for this sample is income level 1, consisting of those making a household income of \< 1000\$ a month. The odds ratio of income 3 for the non-interaction model is 137.4764 (95% confidence interval:[3.851375e+00 - 2.706765e+04], representing a 137.4764 times higher chance of moving away if the person\'s income level was in this group. The odds ratio of income 3 for the interaction model is  159.2625 (95% confidence interval:[3.770685e+00 - 3.200791e+04], representing a 159.2625 times higher chance of moving away if the person\'s income level was in this group. No other hurricane, housing, or sociodemographic variables were under the alpha = .05 threshold for significance. These CIs are quite large, but do not pass below 1, suggesting that they show a significant effect on being in this income category.
+There are not any significant differences between the interaction model and the non interaction model shown comparatively in Table 3. Neither owning/renting, damage to residence, and the interaction effect between the two were of statistical significance. Out of the other predictors, the only variable of significance (p = \< .05) in both models was having an income level of 3 (Moved Away n = 4, Moved Back n = 12) which consists of individuals in households making \$2,000 to just under \$3,000 after taxes per month. The comparison group for this sample is income level 1, consisting of those making a household income of \< 1000\$ a month. The odds ratio of income 3 for the non-interaction model is 137.4764 (95% confidence interval:[3.851375e+00 - 2.706765e+04], representing a 137.4764 times higher chance of moving away if the person's income level was in this group. The odds ratio of income 3 for the interaction model is  159.2625 (95% confidence interval:[3.770685e+00 - 3.200791e+04], representing a 159.2625 times higher chance of moving away if the person's income level was in this group. No other hurricane, housing, or sociodemographic variables were under the alpha = .05 threshold for significance. These CIs are quite large, but do not pass below 1, suggesting that they show a significant effect on being in this income category.
 
-#### T Tests 
+#### T Tests
 
 ```{r, include=FALSE}
+# testing didmove and depression score
+hurricane <- hurricane %>% filter(!is.na(didmove))
 #calc depression score 
 hurricane <- hurricane %>% mutate(across(q31:q37, ~as.numeric(.x))) 
 
@@ -191,11 +189,11 @@ datasummary((`Stress Index` = q37) + (`Depression Index` = depressionscore) + (`
 
 The results of the three t tests are displayed in Table 4. along with means, p-values, and 95% confidence intervals. Both Stress Index and Depression Index show significant differences between the two groups. Stress Index is higher among individuals who moved back after HK (mean = 9.52, t = -2.72, p = .009). Depression Index was higher among individuals who moved away after HK (mean = 23.72, t = 2.61, p = .012). There was no significant difference between self reported health score changes in the Moved Away and Moved Back groups.
 
-### Discussion 
+### Discussion
 
 The mostly null results from the logistic models are interesting, but not entirely surprising due to relatively small sample size (n = 131). These results are also not entirely in disagreement with previous research.  The most surprising null result was the lack of influence of race and residence damage on returning. Previous research on Katrina has shown a higher level of displaced Black residents compared to White residents (Graif, 2016) However, this could be due to a lack of specificity in the data--- Graif also looks at displacement within the city of NO, and our outcome variable is focused on displacement outside of the city. If displacement of Black residents is taking place among NO and suburbs, this effect is not visible in this data and sample. The lack of influence of rent and damage could also be due to small sample size, or it be a product of a more complex relationship between homeownership, damage, and SES as described by Morrow-Jones H. & Morrow-Jones C. (1991). More specific data collection and analysis are  necessary to understand how these variables are interacting with each other to produce displacement outcomes. 
 
-The significant effect of  having a household income between 2,000 - 3,000\$ on moving away from NO after HK suggests a marginal effect of SES on odds of moving. This is in line with Graif (2016), but possibly contrasts with the Morrow-Jones H. & Morrow-Jones C. (1991) theory that higher SES results in more successful outcomes when moving back. However, this binary  outcome variable as included in the model is not a measure of success, but returning or experiencing permanent displacement after a natural disaster. In this model, this result suggests that after reaching a monthly income of 2,000\$, there is an increase in the probability of moving away from NO. This is somewhat in line with other parts of Morrow-Jones H. & Morrow-Jones C\'s (1991) theory, predicting that those with the most resources have the most long term mobility. After this income threshold is reached, it could be that residents in this sample had better mobility and we able to safely relocate permanently. However, it is unclear how accurate this income effect is, as the sample size of this group was n = 19, and the confidence interval on the odds ratio was quite large. It suggests a positive effect, but the size of the out of model significant of this effect needs to be validated. 
+The significant effect of  having a household income between 2,000 - 3,000\$ on moving away from NO after HK suggests a marginal effect of SES on odds of moving. This is in line with Graif (2016), but possibly contrasts with the Morrow-Jones H. & Morrow-Jones C. (1991) theory that higher SES results in more successful outcomes when moving back. However, this binary  outcome variable as included in the model is not a measure of success, but returning or experiencing permanent displacement after a natural disaster. In this model, this result suggests that after reaching a monthly income of 2,000\$, there is an increase in the probability of moving away from NO. This is somewhat in line with other parts of Morrow-Jones H. & Morrow-Jones C's (1991) theory, predicting that those with the most resources have the most long term mobility. After this income threshold is reached, it could be that residents in this sample had better mobility and we able to safely relocate permanently. However, it is unclear how accurate this income effect is, as the sample size of this group was n = 19, and the confidence interval on the odds ratio was quite large. It suggests a positive effect, but the size of the out of model significant of this effect needs to be validated. 
 
 Within the three T Tests, two of the results were significant. A higher stress index in the group who moved back to NO after HK compared to the group that moved away could be a result from higher housing insecurity in areas facing high damage, or from having no other options but to move back (Graif, 2016). This suggests that even among those who experienced displacement, overall HK induced stress was lower, even after relocating permanently. Other work does offer some explanations for this observation, explaining that new opportunities in a novel location as well as decreased exposure to disaster area could be mitigating negative effects of the move (Burrows et al., 2021). Stress due to HK was lower in the displaced group, depression index was higher, indicating an unequal burden of mental outcomes between these two groups. A higher depression index, b ut not stress could be explained by loss of personal ties to NO, personal belongings, social networks and a lack of sense of belonging. Negative mental health outcomes are common in displacement, but it is unknown how stress fits into this picture (Swartz et al., 2018) It is currently unclear if these two findings are complimentary, and if they represent a combination of reactions to displacement and disaster, or if they are contradictory. There was no difference on changes in perceived health between groups, suggesting that displacement did not have an immediate effect on physical health. It is possible that physical health impacts and biological embodiment of traumatic events happens over a longer timeline than observed here (Kelly-Irving & Delpierre ,2021). More work on characterizing these groups is needed to understand these group differences and their long term implications.
 
@@ -211,7 +209,7 @@ References
 
 Burrows, K., Pelupessy, D. C., Khoshnood, K., & Bell, M. L. (2021). Environmental Displacement and Mental Well-Being in Banjarnegara, Indonesia. *Environmental Health Perspectives*, *129*(11), 117002. <https://doi.org/10.1289/EHP9391>
 
-Elliott, J. R., Bellone Hite, A., & Devine, J. A. (2009). Unequal Return: The Uneven Resettlements of New Orleans\' Uptown Neighborhoods. *Organization & Environment*, *22*(4), 410--421. <https://doi.org/10.1177/1086026609347184>
+Elliott, J. R., Bellone Hite, A., & Devine, J. A. (2009). Unequal Return: The Uneven Resettlements of New Orleans' Uptown Neighborhoods. *Organization & Environment*, *22*(4), 410--421. <https://doi.org/10.1177/1086026609347184>
 
 Graif, C. (2016). (Un)natural disaster: Vulnerability, long-distance displacement, and the extended geography of neighborhood distress and attainment after Katrina. *Population and Environment*, *37*(3), 288--318. <https://doi.org/10.1007/s11111-015-0243-6>
 
